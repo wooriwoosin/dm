@@ -246,7 +246,7 @@
       </div>
       <button class="btn" onclick="doLogin()">로그인</button>
       <div class="errorMsg" id="loginError"></div>
-      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-4 (static)</div>
+      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-5 (GET-only)</div>
     </div>
   </div>
 
@@ -359,28 +359,23 @@
   let chartRef = null;
 
   // GAS 웹앱을 JSON API로 호출한다.
-  // POST는 Content-Type을 text/plain으로 보내 브라우저의 CORS preflight(OPTIONS)를
-  // 피한다 (Apps Script 웹앱은 OPTIONS 요청을 처리하지 못하기 때문).
+  // 전부 GET 방식(주소 하나에 action/payload를 실어서 요청)으로 통일했다.
+  // POST + JSON은 Apps Script 배포 환경에 따라 브라우저 사전요청(preflight)이나
+  // CORS 처리에서 막히는 경우가 있는데, GET은 그런 문제 소지가 없다.
   function callApi(action, payload){
-    return fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: action, payload: payload || {} })
-    })
-    .then(res => res.json())
-    .then(res => {
-      if(!res.ok) throw new Error(res.error || '알 수 없는 오류가 발생했습니다.');
-      return res.data;
-    });
-  }
-
-  function fetchData(){
-    return fetch(GAS_URL + '?action=getData')
+    const url = GAS_URL
+      + '?action=' + encodeURIComponent(action)
+      + '&payload=' + encodeURIComponent(JSON.stringify(payload || {}));
+    return fetch(url)
       .then(res => res.json())
       .then(res => {
         if(!res.ok) throw new Error(res.error || '알 수 없는 오류가 발생했습니다.');
         return res.data;
       });
+  }
+
+  function fetchData(){
+    return callApi('getData', {});
   }
 
   function doLogin(){
