@@ -247,7 +247,7 @@
       </div>
       <button class="btn" onclick="doLogin()">로그인</button>
       <div class="errorMsg" id="loginError"></div>
-      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-8</div>
+      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-10</div>
     </div>
   </div>
 
@@ -353,7 +353,7 @@
 
 <script>
   // ▼▼▼ 배포된 GAS 웹앱 URL (배포 관리 > 웹 앱 URL과 동일해야 함) ▼▼▼
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbygZDllgHepvRfYA1QZcYwyZ3nHtCD6tIBMszp99kGh8D6dOyTcZK0MmDyahsqOl09D/exec';
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbwhDAl2W1_mQ-g27jWvrMGBVJLDlZLvdJhzpfxI-I78_Mo-aasqiINweA1pU3wvXPGK/exec';
 
   const AUTH_KEY = 'daddyLoanAuth';
   const fmt = n => (n||0).toLocaleString('ko-KR') + '원';
@@ -364,10 +364,13 @@
   // POST + JSON은 Apps Script 배포 환경에 따라 브라우저 사전요청(preflight)이나
   // CORS 처리에서 막히는 경우가 있는데, GET은 그런 문제 소지가 없다.
   function callApi(action, payload){
+    // 브라우저가 GET 요청을 캐시해서 예전 응답을 그대로 보여주는 걸 막기 위해
+    // 매번 바뀌는 값(_)을 붙이고, fetch 자체도 캐시를 쓰지 말라고 명시한다.
     const url = GAS_URL
       + '?action=' + encodeURIComponent(action)
-      + '&payload=' + encodeURIComponent(JSON.stringify(payload || {}));
-    return fetch(url)
+      + '&payload=' + encodeURIComponent(JSON.stringify(payload || {}))
+      + '&_=' + Date.now();
+    return fetch(url, { cache: 'no-store' })
       .then(res => res.json())
       .then(res => {
         if(!res.ok) throw new Error(res.error || '알 수 없는 오류가 발생했습니다.');
