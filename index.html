@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>아빠 대여금 관리</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
+    onerror="this.onerror=null; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js'; document.head.appendChild(s);"></script>
   <style>
     :root{
       --bg:#F6F7F8;
@@ -246,7 +247,7 @@
       </div>
       <button class="btn" onclick="doLogin()">로그인</button>
       <div class="errorMsg" id="loginError"></div>
-      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-7</div>
+      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-8</div>
     </div>
   </div>
 
@@ -459,10 +460,20 @@
       tbody.appendChild(tr);
     });
 
-    drawChart(data);
+    // 차트 라이브러리(CDN)가 어떤 이유로든 안 불러와졌더라도, 카드/목록/저장 같은
+    // 핵심 기능은 계속 동작하도록 차트 그리기 실패는 여기서만 조용히 넘어간다.
+    try{
+      drawChart(data);
+    }catch(e){
+      console.warn('차트를 그리지 못했습니다:', e);
+    }
   }
 
   function drawChart(data){
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js가 아직 로드되지 않아 차트를 건너뜁니다.');
+      return;
+    }
     const real = data.entries.filter(e=>e.hasData);
     const labels = real.map(e=>e.label);
     const remainSeries = real.map(e=>data.principal - e.cumulative);
