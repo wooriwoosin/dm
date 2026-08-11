@@ -2,10 +2,10 @@
  * 아빠 대여금 관리 앱 - Google Apps Script (JSON API 백엔드)
  * 프론트엔드는 별도로 호스팅되는 정적 HTML(예: GitHub Pages)에서 fetch()로 이 웹앱을 호출합니다.
  * 스프레드시트: 1umwRDxeqYwLQ8nug9Xc_JVJeEKbNyaCwFgSsT51i8Lw / 시트: 아빠상환
- * build v2026.08.11-01
+ * build v2026.08.11-02
  */
 
-const BUILD = 'v2026.08.11-01'; // 응답 JSON에 그대로 찍혀서, 지금 이 코드가 실제로 실행 중인지 확실히 확인 가능
+const BUILD = 'v2026.08.11-02'; // 응답 JSON에 그대로 찍혀서, 지금 이 코드가 실제로 실행 중인지 확실히 확인 가능
 
 const SHEET_ID = '1umwRDxeqYwLQ8nug9Xc_JVJeEKbNyaCwFgSsT51i8Lw';
 const SHEET_NAME = '아빠상환';
@@ -204,11 +204,12 @@ function updateEntry(entry) {
   return getData();
 }
 
-// 새 항목 추가: 실제 데이터가 있는 마지막 행 바로 다음에 삽입한다.
+// 새 항목 추가: 항상 시트의 "맨 아래"(= 실제 데이터가 있는 마지막 행 바로 다음)에 추가한다.
 // (예전엔 "마지막 '날짜 있는' 행" 다음에 넣었는데, 날짜 인식이 한 번이라도 어긋나면
 //  삽입 위치가 최상단으로 떨어져서 새 항목이 시트 맨 위에 잘못 꽂히는 문제가 있었다.
-//  구분·입금일자·금액 중 하나라도 있으면 "데이터가 있는 행"으로 보고 그 다음에 넣는다.
-//  어차피 getData가 월 기준으로 다시 정렬하므로 물리적 위치는 표시에 영향을 주지 않는다.)
+//  이제는 구분·입금일자·금액 중 하나라도 있으면 "데이터가 있는 행"으로 보고, 그중
+//  가장 아래 행 다음에 넣으므로 새 항목은 언제나 데이터 블록의 맨 끝에 채워진다.
+//  게다가 getData가 월 기준으로 다시 정렬하므로, 설령 순서가 어긋나도 표시는 항상 최신순.)
 function addEntry(entry) {
   const sheet = getSheet_();
   const lastRow = getLastRow_(sheet);
