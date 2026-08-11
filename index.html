@@ -247,7 +247,7 @@
       </div>
       <button class="btn" onclick="doLogin()">로그인</button>
       <div class="errorMsg" id="loginError"></div>
-      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.08-10</div>
+      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.11-02</div>
     </div>
   </div>
 
@@ -435,6 +435,33 @@
     });
   }
 
+  // "26.7월분" 같은 라벨이면 그 연·월을, 라벨에 월 정보가 없으면(주형이상환·추가대여금 등)
+  // 입금일자의 연·월을 정렬 키로 만든다. 둘 다 없으면 맨 뒤로 보낸다.
+  function monthKey(e){
+    if(e.label){
+      const m = String(e.label).match(/(\d{2})\s*\.\s*(\d{1,2})\s*월/);
+      if(m){ return (2000 + Number(m[1])) * 12 + (Number(m[2]) - 1); }
+    }
+    if(e.date){
+      const d = new Date(e.date);
+      if(!isNaN(d.getTime())){ return d.getFullYear() * 12 + d.getMonth(); }
+    }
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  // 백엔드는 시트의 "물리적 행 순서" 그대로 넘겨준다. 새 항목이 시트 맨 위에 잘못
+  // 삽입되는 등 물리적 순서가 뒤죽박죽이어도 화면은 항상 올바른 시간순이 되도록,
+  // 여기서 월(달) 기준으로 다시 정렬하고 누적 상환액도 그 순서대로 다시 계산한다.
+  function toChrono(entries){
+    const chrono = entries
+      .map((e, i) => ({ e: Object.assign({}, e), i }))
+      .sort((a, b) => (monthKey(a.e) - monthKey(b.e)) || (a.i - b.i))
+      .map(x => x.e);
+    let run = 0;
+    chrono.forEach(e => { run += (e.repay || 0); e.cumulative = run; });
+    return chrono;
+  }
+
   function renderAll(data){
     document.getElementById('cardPrincipal').innerText = fmt(data.principal);
     document.getElementById('cardRepaid').innerText = fmt(data.totalRepay);
@@ -443,9 +470,12 @@
     document.getElementById('progressPct').innerText = data.progress + '%';
     document.getElementById('progressFill').style.width = Math.min(100, Math.max(0,data.progress)) + '%';
 
+    // 시간순(오래된→최신)으로 정렬 + 누적 재계산한 뒤, 화면에는 뒤집어서 최신순으로 보여준다.
+    const chrono = toChrono(data.entries);
+
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
-    const displayEntries = data.entries.slice().reverse(); // 최신순 표시 (계산은 원본 순서 유지)
+    const displayEntries = chrono.slice().reverse(); // 최신순 표시 (계산은 시간순 유지)
     displayEntries.forEach(e=>{
       const remain = data.principal - e.cumulative;
       const tr = document.createElement('tr');
@@ -466,18 +496,18 @@
     // 차트 라이브러리(CDN)가 어떤 이유로든 안 불러와졌더라도, 카드/목록/저장 같은
     // 핵심 기능은 계속 동작하도록 차트 그리기 실패는 여기서만 조용히 넘어간다.
     try{
-      drawChart(data);
+      drawChart(data, chrono);
     }catch(e){
       console.warn('차트를 그리지 못했습니다:', e);
     }
   }
 
-  function drawChart(data){
+  function drawChart(data, chrono){
     if (typeof Chart === 'undefined') {
       console.warn('Chart.js가 아직 로드되지 않아 차트를 건너뜁니다.');
       return;
     }
-    const real = data.entries.filter(e=>e.hasData);
+    const real = chrono.filter(e=>e.hasData); // 시간순으로 정렬된 실제 기록만 사용
     const labels = real.map(e=>e.label);
     const remainSeries = real.map(e=>data.principal - e.cumulative);
 
