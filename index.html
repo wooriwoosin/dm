@@ -247,7 +247,7 @@
       </div>
       <button class="btn" onclick="doLogin()">로그인</button>
       <div class="errorMsg" id="loginError"></div>
-      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.11-02</div>
+      <div style="text-align:center; font-size:10px; color:#9CA3AF; margin-top:16px;">build v2026.08.11-03</div>
     </div>
   </div>
 
@@ -436,7 +436,8 @@
   }
 
   // "26.7월분" 같은 라벨이면 그 연·월을, 라벨에 월 정보가 없으면(주형이상환·추가대여금 등)
-  // 입금일자의 연·월을 정렬 키로 만든다. 둘 다 없으면 맨 뒤로 보낸다.
+  // 입금일자의 연·월을 정렬 키로 만든다. 둘 다 없으면 null(→ toChrono에서 바로 위 행의
+  // 위치를 물려받게 해, 맨 위로 튀지 않고 시트에 놓인 자리 그대로 정렬되게 한다).
   function monthKey(e){
     if(e.label){
       const m = String(e.label).match(/(\d{2})\s*\.\s*(\d{1,2})\s*월/);
@@ -446,16 +447,25 @@
       const d = new Date(e.date);
       if(!isNaN(d.getTime())){ return d.getFullYear() * 12 + d.getMonth(); }
     }
-    return Number.MAX_SAFE_INTEGER;
+    return null;
   }
 
   // 백엔드는 시트의 "물리적 행 순서" 그대로 넘겨준다. 새 항목이 시트 맨 위에 잘못
   // 삽입되는 등 물리적 순서가 뒤죽박죽이어도 화면은 항상 올바른 시간순이 되도록,
   // 여기서 월(달) 기준으로 다시 정렬하고 누적 상환액도 그 순서대로 다시 계산한다.
+  //
+  // "○○월분" 라벨도 입금일자도 없는 행(주형이상환·추가대여금에서 날짜 칸이 빈 경우 등)은
+  // 정렬 키가 없으므로, 시트 순서상 "바로 위 행"의 키를 물려받게 한다. 그래서 그런 항목도
+  // 맨 위로 튀지 않고, 시트에 놓인 자리(예: 22.10월분과 22.11월분 사이) 그대로 정렬된다.
   function toChrono(entries){
-    const chrono = entries
-      .map((e, i) => ({ e: Object.assign({}, e), i }))
-      .sort((a, b) => (monthKey(a.e) - monthKey(b.e)) || (a.i - b.i))
+    let carry = 0; // 첫 행부터 키가 없으면(사실상 없음) 맨 아래(가장 오래된 쪽)로 보냄
+    const withKey = entries.map((e, i) => {
+      let k = monthKey(e);
+      if(k === null){ k = carry; } else { carry = k; }
+      return { e: Object.assign({}, e), i, k };
+    });
+    const chrono = withKey
+      .sort((a, b) => (a.k - b.k) || (a.i - b.i))
       .map(x => x.e);
     let run = 0;
     chrono.forEach(e => { run += (e.repay || 0); e.cumulative = run; });

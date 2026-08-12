@@ -2,10 +2,10 @@
  * 아빠 대여금 관리 앱 - Google Apps Script (JSON API 백엔드)
  * 프론트엔드는 별도로 호스팅되는 정적 HTML(예: GitHub Pages)에서 fetch()로 이 웹앱을 호출합니다.
  * 스프레드시트: 1umwRDxeqYwLQ8nug9Xc_JVJeEKbNyaCwFgSsT51i8Lw / 시트: 아빠상환
- * build v2026.08.11-02
+ * build v2026.08.11-03
  */
 
-const BUILD = 'v2026.08.11-02'; // 응답 JSON에 그대로 찍혀서, 지금 이 코드가 실제로 실행 중인지 확실히 확인 가능
+const BUILD = 'v2026.08.11-03'; // 응답 JSON에 그대로 찍혀서, 지금 이 코드가 실제로 실행 중인지 확실히 확인 가능
 
 const SHEET_ID = '1umwRDxeqYwLQ8nug9Xc_JVJeEKbNyaCwFgSsT51i8Lw';
 const SHEET_NAME = '아빠상환';
@@ -98,6 +98,7 @@ function parseDateCell_(val) {
 //  예) 23.6월분은 실제 입금일이 2023.8.1 인데, 23.7월분(미입금)은 날짜가 없다.
 //  입금일 기준으로 정렬하면 23.7월분이 23.6월분보다 앞서버린다. 장부의 진짜 순서는
 //  "몇 월분"이라는 슬롯이므로 라벨의 연·월을 우선한다.
+// 반환값이 null이면 "정렬 키 없음" → getData에서 바로 위(앞) 행의 키를 물려받는다.
 function monthKeyOf_(label, parsedDate) {
   if (label) {
     const m = String(label).match(/(\d{2})\s*\.\s*(\d{1,2})\s*월/);
@@ -108,7 +109,7 @@ function monthKeyOf_(label, parsedDate) {
   if (parsedDate) {
     return parsedDate.getFullYear() * 12 + parsedDate.getMonth();
   }
-  return Number.MAX_SAFE_INTEGER;
+  return null;
 }
 
 function getData() {
@@ -150,6 +151,14 @@ function getData() {
       });
     });
   }
+
+  // "○○월분" 라벨도 입금일자도 없는 행(주형이상환·추가대여금에서 날짜 칸이 빈 경우 등)은
+  // 정렬 키(sortKey)가 null이다. 시트 순서상 "바로 위 행"의 키를 물려받게 해서, 맨 위로
+  // 튀지 않고 시트에 놓인 자리 그대로 정렬되게 한다. (raw는 물리적 행 순서로 채워져 있다.)
+  let carry = 0;
+  raw.forEach(e => {
+    if (e.sortKey === null) e.sortKey = carry; else carry = e.sortKey;
+  });
 
   // 시트의 물리적 행 순서가 뒤죽박죽이어도(예: 새 항목이 맨 위에 잘못 삽입돼도)
   // 항상 올바른 시간순(오래된→최신)으로 계산/반환되도록 월 기준으로 정렬한다.
